@@ -95,8 +95,8 @@ public:
   void setFontMinWd(uint8_t wd) { cfont.minCharWd = wd; }
   void setCharMinWd(uint8_t wd) { cfont.minCharWd = wd; }
   void setDigitMinWd(uint8_t wd) { cfont.minDigitWd = wd; }
-  int16_t printChar(int16_t xpos, int16_t ypos, unsigned char c);
-  int16_t printStr(int16_t xpos, int16_t ypos, const char *str);
+  int16_t printChar(int16_t xpos, int16_t ypos, unsigned char c, uint8_t col);
+  int16_t printStr(int16_t xpos, int16_t ypos, const char *str, uint8_t col);
   int16_t charWidth(uint8_t _ch, bool last=true);
   int16_t fontHeight();
   int16_t strWidth(const char *txt);

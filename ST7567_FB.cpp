@@ -766,7 +766,7 @@ int16_t ST7567_FB::strWidth(const char *str)
   return wd;
 }
 // ----------------------------------------------------------------
-int16_t ST7567_FB::printChar(int16_t xpos, int16_t ypos, unsigned char c)
+int16_t ST7567_FB::printChar(int16_t xpos, int16_t ypos, unsigned char c, uint8_t col)
 {
   if(xpos >= SCR_WD || ypos >= SCR_HT)  return 0;
   int fht8 = (cfont.ySize + 7) / 8, wd, fwd = cfont.xSize;
@@ -799,7 +799,11 @@ int16_t ST7567_FB::printChar(int16_t xpos, int16_t ypos, unsigned char c)
       int lastbit = cfont.ySize - y8 * 8;
       if (lastbit > 8) lastbit = 8;
       for(b=0; b<lastbit; b++) {
-         if(d & 1) scr[((ypos+y8*8+b)/8)*scrWd+xpos+x+wdL] |= 1<<((ypos+y8*8+b)&7);  //drawPixel(xpos+x+wdL, ypos+y8*8+b, 1);
+         if(d & 1){
+        	 if (col == 0) scr[((ypos+y8*8+b)/8)*scrWd+xpos+x+wdL] &= ~(1<<((ypos+y8*8+b)&7));
+        	 else if (col == 1) scr[((ypos+y8*8+b)/8)*scrWd+xpos+x+wdL] |= 1<<((ypos+y8*8+b)&7);  //drawPixel(xpos+x+wdL, ypos+y8*8+b, 1);
+        	 else if (col == 2) scr[((ypos+y8*8+b)/8)*scrWd+xpos+x+wdL] ^= 1<<((ypos+y8*8+b)&7);
+         }
          d>>=1;
       }
     }
@@ -807,7 +811,7 @@ int16_t ST7567_FB::printChar(int16_t xpos, int16_t ypos, unsigned char c)
   return wd+wdR+wdL;
 }
 // ----------------------------------------------------------------
-int16_t ST7567_FB::printStr(int16_t xpos, int16_t ypos, const char *str)
+int16_t ST7567_FB::printStr(int16_t xpos, int16_t ypos, const char *str, uint8_t col)
 {
   //unsigned char ch;
   //int stl, row;
@@ -822,7 +826,7 @@ int16_t ST7567_FB::printStr(int16_t xpos, int16_t ypos, const char *str)
   if(x<0) x = 0; // left
 
   while(*str) {
-    int wd = printChar(x,y,*str++);
+    int wd = printChar(x,y,*str++, col);
     x+=wd;
     if(cr && x>=SCR_WD) {
       x=0;
