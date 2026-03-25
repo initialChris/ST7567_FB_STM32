@@ -17,20 +17,15 @@
 #ifndef _ST7567_FB_H
 #define _ST7567_FB_H
 
-// ------------
-// remove define for software SPI
-#define USE_HW_SPI
-// ------------
 
-#include <Arduino.h>
-#include <avr/pgmspace.h>
+#include "stm32f4xx_hal.h"
 
 #define SCR_WD  128
 #define SCR_HT  64
 #define SCR_HT8 8  // SCR_HT/8
 
 #define ALIGN_LEFT    0
-#define ALIGN_RIGHT  -1 
+#define ALIGN_RIGHT  -1
 #define ALIGN_CENTER -2
 
 #define SET 1
@@ -51,25 +46,24 @@ struct _propFont
 // ---------------------------------
 class ST7567_FB {
 public:
-  ST7567_FB(uint8_t dc, uint8_t rst, uint8_t cs);
-  ST7567_FB(uint8_t dc, uint8_t rst, uint8_t cs, uint8_t sdi, uint8_t clk);
+  ST7567_FB(SPI_HandleTypeDef *hspi, GPIO_TypeDef *dc_port, uint16_t dc_pin, GPIO_TypeDef *cs_port, uint16_t cs_pin,  GPIO_TypeDef *rst_port, uint16_t rst_pin);
 
   inline void sendSPI(uint8_t v) __attribute__((always_inline)); // costs about 350B of flash
   inline void sendCmd(uint8_t cmd);
   inline void sendData(uint8_t data);
-  void init(int contrast=7);
+  void init(uint8_t contrast=7);
   void begin() { init(); }
   void initCmds();
   void display();
   void copy(uint8_t x, uint8_t y8, uint8_t wd, uint8_t ht8);
-  void gotoXY(byte x, byte y);
+  void gotoXY(uint8_t x, uint8_t y);
   void sleep(bool mode=true);
-  void setContrast(byte val);
-  void setScroll(byte val);
+  void setContrast(uint8_t val);
+  void setScroll(uint8_t val);
   void displayInvert(bool mode);
   void displayOn(bool mode);
-  void displayMode(byte val);
-  void setRotation(int mode);
+  void displayMode(uint8_t val);
+  void setRotation(uint8_t mode);
 
   void cls();
   void clearDisplay() { cls(); }
@@ -92,8 +86,8 @@ public:
   void fillTriangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t color);
   void fillTriangleD(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t color);
   void setDither(int8_t s);
-  int drawBitmap(const uint8_t *bmp, int x, uint8_t y, uint8_t w, uint8_t h);
-  int drawBitmap(const uint8_t *bmp, int x, uint8_t y);
+  int16_t drawBitmap(const uint8_t *bmp, uint8_t x, uint8_t y, uint8_t w, uint8_t h);
+  int16_t drawBitmap(const uint8_t *bmp, uint8_t x, uint8_t y);
 
   void setFont(const uint8_t* f);
   void setCR(uint8_t _cr) { cr = _cr; }
@@ -101,28 +95,30 @@ public:
   void setFontMinWd(uint8_t wd) { cfont.minCharWd = wd; }
   void setCharMinWd(uint8_t wd) { cfont.minCharWd = wd; }
   void setDigitMinWd(uint8_t wd) { cfont.minDigitWd = wd; }
-  int printChar(int xpos, int ypos, unsigned char c);
-  int printStr(int xpos, int ypos, char *str);
-  int charWidth(uint8_t _ch, bool last=true);
-  int fontHeight();
-  int strWidth(char *txt);
+  int16_t printChar(int16_t xpos, int16_t ypos, unsigned char c);
+  int16_t printStr(int16_t xpos, int16_t ypos, const char *str);
+  int16_t charWidth(uint8_t _ch, bool last=true);
+  int16_t fontHeight();
+  int16_t strWidth(const char *txt);
   unsigned char convertPolish(unsigned char _c);
   static bool isNumber(uint8_t ch);
   static bool isNumberExt(uint8_t ch);
   void setIsNumberFun(bool (*fun)(uint8_t)) { isNumberFun=fun; }
-  
+
 public:
-  static byte scr[SCR_WD*SCR_HT8];
-  byte scrWd = SCR_WD;
-  byte scrHt = SCR_HT8;
-  uint8_t dcPin, csPin, rstPin;
-  uint8_t sdiPin, clkPin;
+  static uint8_t scr[SCR_WD*SCR_HT8];
+  SPI_HandleTypeDef * _spi = nullptr;
+  uint16_t _dcPin, _csPin, _rstPin;
+  GPIO_TypeDef *_dcPort, *_csPort, *_rstPort;
+
+  uint8_t scrWd = SCR_WD;
+  uint8_t scrHt = SCR_HT8;
   int8_t rotation;
 
-  static byte ystab[8];
-  static byte yetab[8];
-  static byte pattern[4];
-  static const byte ditherTab[4*17];
+  static uint8_t ystab[8];
+  static uint8_t yetab[8];
+  static uint8_t pattern[4];
+  static const uint8_t ditherTab[4*17];
 
 //private:
   bool (*isNumberFun)(uint8_t ch);
@@ -130,7 +126,6 @@ public:
   uint8_t cr;  // carriage return mode for printStr
   uint8_t dualChar;
   uint8_t invertCh;
-  uint8_t spacing = 1;	
+  uint8_t spacing = 1;
 };
 #endif
-

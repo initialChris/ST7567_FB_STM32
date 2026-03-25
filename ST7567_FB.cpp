@@ -14,16 +14,24 @@
  #08 GND  -> GND
 */
 
-#include "ST7567_FB.h"
+#include "st7567_fb.h"
+#include <cstring> // For memset in C++
+#include <cstdlib> // For abs
 
-#define fontbyte(x) pgm_read_byte(&cfont.font[x])
+#ifndef max
+#define max(a,b) (((a) > (b)) ? (a) : (b))
+#endif
 
-#include <SPI.h>
+#ifndef min
+#define min(a,b) (((a) < (b)) ? (a) : (b))
+#endif
 
-#define CS_IDLE     digitalWrite(csPin, HIGH)
-#define CS_ACTIVE   digitalWrite(csPin, LOW)
-#define DC_DATA     digitalWrite(dcPin, HIGH)
-#define DC_COMMAND  digitalWrite(dcPin, LOW)
+#define fontbyte(x) (cfont.font[x])
+
+#define CS_IDLE     HAL_GPIO_WritePin(_csPort, _csPin, GPIO_PIN_SET)
+#define CS_ACTIVE   HAL_GPIO_WritePin(_csPort, _csPin, GPIO_PIN_RESET)
+#define DC_DATA     HAL_GPIO_WritePin(_dcPort, _dcPin, GPIO_PIN_SET)
+#define DC_COMMAND  HAL_GPIO_WritePin(_dcPort, _dcPin, GPIO_PIN_RESET)
 
 //------------------------------
 // ST7567 Commands
@@ -53,7 +61,7 @@
 #define ST7567_RMW              0xE0
 #define ST7567_RMW_CLEAR        0xEE
 
-#define ST7567_BIAS_9           0xA2 
+#define ST7567_BIAS_9           0xA2
 #define ST7567_BIAS_7           0xA3
 
 #define ST7567_VOLUME_FIRST     0x81
@@ -67,7 +75,7 @@
 #define ST7567_BOOSTER_6        3
 //------------------------------
 
-const uint8_t initData[] PROGMEM = {
+const uint8_t initData[] = {
   ST7567_BIAS_7,
   ST7567_SEG_NORMAL,
   ST7567_COM_REMAP,
@@ -82,11 +90,7 @@ const uint8_t initData[] PROGMEM = {
 // ----------------------------------------------------------------
 inline void ST7567_FB::sendSPI(uint8_t v)
 {
-  #ifdef USE_HW_SPI
-  SPI.transfer(v);
-  #else
-  shiftOut(sdiPin, clkPin, MSBFIRST, v);
-  #endif
+  HAL_SPI_Transmit(_spi, &v, 1, 10);
 }
 // ----------------------------------------------------------------
 inline void ST7567_FB::sendCmd(uint8_t cmd)
@@ -101,27 +105,19 @@ inline void ST7567_FB::sendData(uint8_t data)
   sendSPI(data);
 }
 // ----------------------------------------------------------------
-ST7567_FB::ST7567_FB(uint8_t dc, uint8_t rst, uint8_t cs)
-{
-  dcPin   = dc;
-  rstPin  = rst;
-  csPin   = cs;
-  sdiPin  = 11;
-  clkPin  = 13;
+ST7567_FB::ST7567_FB(SPI_HandleTypeDef *hspi, GPIO_TypeDef *dc_port, uint16_t dc_pin, GPIO_TypeDef *cs_port, uint16_t cs_pin,  GPIO_TypeDef *rst_port, uint16_t rst_pin){
+	_spi = hspi;
+	_dcPort = dc_port;
+	_csPort = cs_port;
+	_rstPort = rst_port;
+	_dcPin = dc_pin;
+	_csPin = cs_pin;
+	_rstPin = rst_pin;
 }
 // ----------------------------------------------------------------
-ST7567_FB::ST7567_FB(uint8_t dc, uint8_t rst, uint8_t cs, uint8_t sdi, uint8_t clk)
-{
-  dcPin   = dc;
-  rstPin  = rst;
-  csPin   = cs;
-  sdiPin  = sdi;
-  clkPin  = clk;
-}
-// ----------------------------------------------------------------
-byte ST7567_FB::scr[SCR_WD*SCR_HT8];
+uint8_t ST7567_FB::scr[SCR_WD*SCR_HT8];
 
-void ST7567_FB::init(int contrast)
+void ST7567_FB::init(uint8_t contrast)
 {
   scrWd=SCR_WD;
   scrHt=SCR_HT/8;
@@ -130,28 +126,13 @@ void ST7567_FB::init(int contrast)
   cfont.font = NULL;
   dualChar = 0;
 
-  pinMode(csPin, OUTPUT);
-  pinMode(dcPin, OUTPUT);
-  if(rstPin<255) {
-    pinMode(rstPin, OUTPUT);
-    digitalWrite(rstPin, HIGH);
-    delay(50);
-    digitalWrite(rstPin, LOW);
-    delay(500);
-    digitalWrite(rstPin, HIGH);
-    delay(10);
-  }
+  HAL_GPIO_WritePin(_rstPort, _rstPin, GPIO_PIN_SET);
+  HAL_Delay(50);
+  HAL_GPIO_WritePin(_rstPort, _rstPin, GPIO_PIN_RESET);
+  HAL_Delay(50);
+  HAL_GPIO_WritePin(_rstPort, _rstPin, GPIO_PIN_SET);
+  HAL_Delay(50);
 
-#ifdef USE_HW_SPI
-  SPI.begin();
-  SPI.setDataMode(SPI_MODE0);
-#ifdef __AVR__
-  SPI.setClockDivider(SPI_CLOCK_DIV2);
-#endif
-#else
-  pinMode(sdiPin, OUTPUT);
-  pinMode(clkPin, OUTPUT);
-#endif
   initCmds();
   setContrast(contrast);
   //setRotation(0);
@@ -160,7 +141,7 @@ void ST7567_FB::init(int contrast)
 void ST7567_FB::initCmds()
 {
   CS_ACTIVE;
-  for(int i=0; i<sizeof(initData); i++) sendCmd(pgm_read_byte(initData+i));
+  for(uint16_t i=0; i<sizeof(initData); i++) sendCmd(initData[i]);
   /*
   sendCmd(ST7567_BIAS_7);
   sendCmd(ST7567_SEG_NORMAL);
@@ -178,14 +159,14 @@ void ST7567_FB::initCmds()
   sendCmd(ST7567_RESISTOR_RATIO | 0x6);
 
   // Initial display line
-  sendCmd(ST7567_SCAN_START_LINE+0); 
+  sendCmd(ST7567_SCAN_START_LINE+0);
   sendCmd(ST7567_DISPLAY_ON);
   sendCmd(ST7567_DISPLAY_NORMAL);
   */
   CS_IDLE;
 }
 // ----------------------------------------------------------------
-void ST7567_FB::gotoXY(byte x, byte y)
+void ST7567_FB::gotoXY(uint8_t x, uint8_t y)
 {
   CS_ACTIVE;
   sendCmd(ST7567_PAGE_ADDR | y);
@@ -208,7 +189,7 @@ void ST7567_FB::sleep(bool mode)
 }
 // ----------------------------------------------------------------
 // 0..31
-void ST7567_FB::setContrast(byte val)
+void ST7567_FB::setContrast(uint8_t val)
 {
   CS_ACTIVE;
   sendCmd(ST7567_VOLUME_FIRST);
@@ -217,7 +198,7 @@ void ST7567_FB::setContrast(byte val)
 }
 // ----------------------------------------------------------------
 // 0..63
-void ST7567_FB::setScroll(byte val)
+void ST7567_FB::setScroll(uint8_t val)
 {
   CS_ACTIVE;
   sendCmd(ST7567_SCAN_START_LINE|(val&0x3f));
@@ -225,7 +206,7 @@ void ST7567_FB::setScroll(byte val)
 }
 // ----------------------------------------------------------------
 // 0..3, only 0 and 2 supported on ST7567
-void ST7567_FB::setRotation(int mode)
+void ST7567_FB::setRotation(uint8_t mode)
 {
   rotation = mode;
   CS_ACTIVE;
@@ -258,7 +239,7 @@ void ST7567_FB::displayOn(bool mode)
 // ----------------------------------------------------------------
 // val=ST7567_POWER_ON, ST7567_POWER_OFF, ST7567_DISPLAY_NORMAL, ST7567_DISPLAY_TEST
 //     ST7567_INVERT_OFF, ST7567_INVERT_ON, ST7567_DISPLAY_ON, ST7567_DISPLAY_OFF
-void ST7567_FB::displayMode(byte val)
+void ST7567_FB::displayMode(uint8_t val)
 {
   CS_ACTIVE;
   sendCmd(val);
@@ -295,7 +276,7 @@ void ST7567_FB::cls()
   memset(scr,0,SCR_WD*SCR_HT8);
 }
 // ----------------------------------------------------------------
-void ST7567_FB::drawPixel(uint8_t x, uint8_t y, uint8_t col) 
+void ST7567_FB::drawPixel(uint8_t x, uint8_t y, uint8_t col)
 {
   if(x>=SCR_WD || y>=SCR_HT) return;
   switch(col) {
@@ -312,9 +293,9 @@ void ST7567_FB::drawLine(int8_t x0, int8_t y0, int8_t x1, int8_t y1, uint8_t col
   int sx = (x0 < x1) ? 1 : -1;
   int sy = (y0 < y1) ? 1 : -1;
   int err = dx - dy;
- 
+
   while(1) {
-    //if(x0>=0 && y0>=0) 
+    //if(x0>=0 && y0>=0)
       drawPixel(x0, y0, col);
     if(x0==x1 && y0==y1) return;
     int err2 = err+err;
@@ -362,9 +343,9 @@ void ST7567_FB::drawLineHfastD(uint8_t x0, uint8_t x1, uint8_t y, uint8_t col)
   }
 }
 // ----------------------------------------------------------------
-byte ST7567_FB::ystab[8]={0xff,0xfe,0xfc,0xf8,0xf0,0xe0,0xc0,0x80};
-byte ST7567_FB::yetab[8]={0x01,0x03,0x07,0x0f,0x1f,0x3f,0x7f,0xff};
-byte ST7567_FB::pattern[4]={0xaa,0x55,0xaa,0x55};
+uint8_t ST7567_FB::ystab[8]={0xff,0xfe,0xfc,0xf8,0xf0,0xe0,0xc0,0x80};
+uint8_t ST7567_FB::yetab[8]={0x01,0x03,0x07,0x0f,0x1f,0x3f,0x7f,0xff};
+uint8_t ST7567_FB::pattern[4]={0xaa,0x55,0xaa,0x55};
 // about 40x faster than regular drawLineV
 void ST7567_FB::drawLineVfast(uint8_t x, uint8_t y0, uint8_t y1, uint8_t col)
 {
@@ -377,7 +358,7 @@ void ST7567_FB::drawLineVfast(uint8_t x, uint8_t y0, uint8_t y1, uint8_t col)
   y8e=y1/8;
 
   switch(col) {
-    case 1: 
+    case 1:
       if(y8s==y8e) scr[y8s*scrWd+x]|=(ystab[y0&7] & yetab[y1&7]);
       else { scr[y8s*scrWd+x]|=ystab[y0&7]; scr[y8e*scrWd+x]|=yetab[y1&7]; }
       for(int y=y8s+1; y<y8e; y++) scr[y*scrWd+x]=0xff;
@@ -387,7 +368,7 @@ void ST7567_FB::drawLineVfast(uint8_t x, uint8_t y0, uint8_t y1, uint8_t col)
       else { scr[y8s*scrWd+x]&=~ystab[y0&7]; scr[y8e*scrWd+x]&=~yetab[y1&7]; }
       for(int y=y8s+1; y<y8e; y++) scr[y*scrWd+x]=0x00;
       break;
-    case 2: 
+    case 2:
       if(y8s==y8e) scr[y8s*scrWd+x]^=(ystab[y0&7] & yetab[y1&7]);
       else { scr[y8s*scrWd+x]^=ystab[y0&7]; scr[y8e*scrWd+x]^=yetab[y1&7]; }
       for(int y=y8s+1; y<y8e; y++) scr[y*scrWd+x]^=0xff;
@@ -404,7 +385,7 @@ void ST7567_FB::drawLineVfastD(uint8_t x, uint8_t y0, uint8_t y1, uint8_t col)
   y8e=y1/8;
 
   switch(col) {
-    case 1: 
+    case 1:
       if(y8s==y8e) scr[y8s*scrWd+x]|=(ystab[y0&7] & yetab[y1&7] & pattern[x&3]);
       else { scr[y8s*scrWd+x]|=(ystab[y0&7] & pattern[x&3]); scr[y8e*scrWd+x]|=(yetab[y1&7] & pattern[x&3]); }
       for(int y=y8s+1; y<y8e; y++) scr[y*scrWd+x]|=pattern[x&3];
@@ -414,7 +395,7 @@ void ST7567_FB::drawLineVfastD(uint8_t x, uint8_t y0, uint8_t y1, uint8_t col)
       else { scr[y8s*scrWd+x]&=~(ystab[y0&7] & pattern[x&3]); scr[y8e*scrWd+x]&=~(yetab[y1&7] & pattern[x&3]); }
       for(int y=y8s+1; y<y8e; y++) scr[y*scrWd+x]&=~pattern[x&3];
       break;
-    case 2: 
+    case 2:
       if(y8s==y8e) scr[y8s*scrWd+x]^=(ystab[y0&7] & yetab[y1&7] & pattern[x&3]);
       else { scr[y8s*scrWd+x]^=(ystab[y0&7] & pattern[x&3]); scr[y8e*scrWd+x]^=(yetab[y1&7] & pattern[x&3]); }
       for(int y=y8s+1; y<y8e; y++) scr[y*scrWd+x]^=pattern[x&3];
@@ -425,7 +406,7 @@ void ST7567_FB::drawLineVfastD(uint8_t x, uint8_t y0, uint8_t y1, uint8_t col)
 void ST7567_FB::drawRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t col)
 {
   if(x>=SCR_WD || y>=SCR_HT) return;
-  byte drawVright=1;
+  uint8_t drawVright=1;
   if(x+w>SCR_WD) { w=SCR_WD-x; drawVright=0; }
   if(y+h>SCR_HT) h=SCR_HT-y; else drawLineHfast(x, x+w-1, y+h-1,col);
   drawLineHfast(x, x+w-1, y,col);
@@ -437,7 +418,7 @@ void ST7567_FB::drawRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t col
 void ST7567_FB::drawRectD(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t col)
 {
   if(x>=SCR_WD || y>=SCR_HT) return;
-  byte drawVright=1;
+  uint8_t drawVright=1;
   if(x+w>SCR_WD) { w=SCR_WD-x; drawVright=0; }
   if(y+h>SCR_HT) h=SCR_HT-y; else drawLineHfastD(x, x+w-1, y+h-1,col);
   drawLineHfastD(x, x+w-1, y,col);
@@ -470,17 +451,17 @@ void ST7567_FB::drawCircle(uint8_t x0, uint8_t y0, uint8_t radius, uint8_t col)
   int ddF_y = -2 * (int)radius;
   int x = 0;
   int y = radius;
- 
+
   drawPixel(x0, y0 + radius, col);
   drawPixel(x0, y0 - radius, col);
   drawPixel(x0 + radius, y0, col);
   drawPixel(x0 - radius, y0, col);
- 
+
   while(x < y) {
     if(f >= 0) {
       y--; ddF_y += 2; f += ddF_y;
     }
-    x++; ddF_x += 2; f += ddF_x;    
+    x++; ddF_x += 2; f += ddF_x;
     drawPixel(x0 + x, y0 + y, col);
     drawPixel(x0 - x, y0 + y, col);
     drawPixel(x0 + x, y0 - y, col);
@@ -653,7 +634,7 @@ void ST7567_FB::fillTriangleD( int16_t x0, int16_t y0, int16_t x1, int16_t y1, i
   }
 }
 // ----------------------------------------------------------------
-const byte ST7567_FB::ditherTab[4*17] PROGMEM = {
+const uint8_t ST7567_FB::ditherTab[4*17] = {
   0x00,0x00,0x00,0x00, // 0
 
   0x00,0x00,0x00,0x88, // 1
@@ -663,9 +644,9 @@ const byte ST7567_FB::ditherTab[4*17] PROGMEM = {
   0x44,0xaa,0x00,0xaa, // 5
   0x44,0xaa,0x11,0xaa, // 6
   0x44,0xaa,0x55,0xaa, // 7
-  
+
   0x55,0xaa,0x55,0xaa, // 8
-  
+
   0xdd,0xaa,0x55,0xaa, // 9
   0xdd,0xaa,0x77,0xaa, // 10
   0xdd,0xaa,0xff,0xaa, // 11
@@ -679,18 +660,23 @@ const byte ST7567_FB::ditherTab[4*17] PROGMEM = {
 
 void ST7567_FB::setDither(int8_t s)
 {
-  if(s>16) s=16;
-  if(s<-16) s=-16;
-  if(s<0) {
-    pattern[0] = ~pgm_read_byte(ditherTab-s*4+0);
-    pattern[1] = ~pgm_read_byte(ditherTab-s*4+1);
-    pattern[2] = ~pgm_read_byte(ditherTab-s*4+2);
-    pattern[3] = ~pgm_read_byte(ditherTab-s*4+3);
+  // Clip del valore tra -16 e 16
+  if(s > 16) s = 16;
+  if(s < -16) s = -16;
+
+  if(s < 0) {
+
+    int offset = (-s) * 4;
+    pattern[0] = ~ditherTab[offset + 0];
+    pattern[1] = ~ditherTab[offset + 1];
+    pattern[2] = ~ditherTab[offset + 2];
+    pattern[3] = ~ditherTab[offset + 3];
   } else {
-    pattern[0] = pgm_read_byte(ditherTab+s*4+0);
-    pattern[1] = pgm_read_byte(ditherTab+s*4+1);
-    pattern[2] = pgm_read_byte(ditherTab+s*4+2);
-    pattern[3] = pgm_read_byte(ditherTab+s*4+3);
+    int offset = s * 4;
+    pattern[0] = ditherTab[offset + 0];
+    pattern[1] = ditherTab[offset + 1];
+    pattern[2] = ditherTab[offset + 2];
+    pattern[3] = ditherTab[offset + 3];
   }
 }
 // ----------------------------------------------------------------
@@ -703,14 +689,14 @@ void ST7567_FB::setDither(int8_t s)
   if(y+h>SCR_HT) h = SCR_HT-y
 // ----------------------------------------------------------------
 
-int ST7567_FB::drawBitmap(const uint8_t *bmp, int x, uint8_t y, uint8_t w, uint8_t h)
+int16_t ST7567_FB::drawBitmap(const uint8_t *bmp, uint8_t x, uint8_t y, uint8_t w, uint8_t h)
 {
   uint8_t wdb = w;
   ALIGNMENT;
-  byte i,y8,d,b,ht8=(h+7)/8;
+  uint8_t i,y8,d,b,ht8=(h+7)/8;
   for(y8=0; y8<ht8; y8++) {
     for(i=0; i<w; i++) {
-      d = pgm_read_byte(bmp+wdb*y8+i);
+      d = bmp[wdb * y8 + i];
       int lastbit = h - y8 * 8;
       if (lastbit > 8) lastbit = 8;
       for(b=0; b<lastbit; b++) {
@@ -722,10 +708,10 @@ int ST7567_FB::drawBitmap(const uint8_t *bmp, int x, uint8_t y, uint8_t w, uint8
   return x+w;
 }
 // ----------------------------------------------------------------
-int ST7567_FB::drawBitmap(const uint8_t *bmp, int x, uint8_t y)
+int16_t ST7567_FB::drawBitmap(const uint8_t *bmp, uint8_t x, uint8_t y)
 {
-  uint8_t w = pgm_read_byte(bmp+0);
-  uint8_t h = pgm_read_byte(bmp+1);
+  uint8_t w = bmp[0];
+  uint8_t h = bmp[1];
   return drawBitmap(bmp+2, x, y, w, h);
 }
 // ----------------------------------------------------------------
@@ -746,12 +732,12 @@ void ST7567_FB::setFont(const uint8_t* font)
   invertCh = 0;
 }
 // ----------------------------------------------------------------
-int ST7567_FB::fontHeight()
+int16_t ST7567_FB::fontHeight()
 {
   return cfont.ySize;
 }
 // ----------------------------------------------------------------
-int ST7567_FB::charWidth(uint8_t c, bool last)
+int16_t ST7567_FB::charWidth(uint8_t c, bool last)
 {
   c = convertPolish(c);
   if(c < cfont.firstCh || c > cfont.lastCh)
@@ -759,7 +745,7 @@ int ST7567_FB::charWidth(uint8_t c, bool last)
   if (cfont.xSize > 0) return cfont.xSize;
   int ys8=(cfont.ySize+7)/8;
   int idx = 4 + (c-cfont.firstCh)*(-cfont.xSize*ys8+1);
-  int wd = pgm_read_byte(cfont.font + idx);
+  int wd = cfont.font[idx];
   int wdL = 0, wdR = spacing; // default spacing before and behind char
   if((*isNumberFun)(c) && cfont.minDigitWd>0) {
     if(cfont.minDigitWd>wd) {
@@ -770,17 +756,17 @@ int ST7567_FB::charWidth(uint8_t c, bool last)
     wdL = (cfont.minCharWd-wd)/2;
     wdR += (cfont.minCharWd-wd-wdL);
   }
-  return last ? wd+wdL+wdR : wd+wdL+wdR-spacing;  // last!=0 -> get rid of last empty columns 
+  return last ? wd+wdL+wdR : wd+wdL+wdR-spacing;  // last!=0 -> get rid of last empty columns
 }
 // ----------------------------------------------------------------
-int ST7567_FB::strWidth(char *str)
+int16_t ST7567_FB::strWidth(const char *str)
 {
   int wd = 0;
   while (*str) wd += charWidth(*str++);
   return wd;
 }
 // ----------------------------------------------------------------
-int ST7567_FB::printChar(int xpos, int ypos, unsigned char c)
+int16_t ST7567_FB::printChar(int16_t xpos, int16_t ypos, unsigned char c)
 {
   if(xpos >= SCR_WD || ypos >= SCR_HT)  return 0;
   int fht8 = (cfont.ySize + 7) / 8, wd, fwd = cfont.xSize;
@@ -790,7 +776,7 @@ int ST7567_FB::printChar(int xpos, int ypos, unsigned char c)
   if(c < cfont.firstCh || c > cfont.lastCh)  return c==' ' ?  1 + fwd/2 : 0;
 
   int x,y8,b,cdata = (c - cfont.firstCh) * (fwd*fht8+1) + 4;
-  byte d;
+  uint8_t d;
   wd = fontbyte(cdata++);
   int wdL = 0, wdR = spacing;
   if((*isNumberFun)(c) && cfont.minDigitWd>0) {
@@ -821,10 +807,10 @@ int ST7567_FB::printChar(int xpos, int ypos, unsigned char c)
   return wd+wdR+wdL;
 }
 // ----------------------------------------------------------------
-int ST7567_FB::printStr(int xpos, int ypos, char *str)
+int16_t ST7567_FB::printStr(int16_t xpos, int16_t ypos, const char *str)
 {
-  unsigned char ch;
-  int stl, row;
+  //unsigned char ch;
+  //int stl, row;
   int x = xpos;
   int y = ypos;
   int wd = strWidth(str);
@@ -838,9 +824,9 @@ int ST7567_FB::printStr(int xpos, int ypos, char *str)
   while(*str) {
     int wd = printChar(x,y,*str++);
     x+=wd;
-    if(cr && x>=SCR_WD) { 
-      x=0; 
-      y+=cfont.ySize; 
+    if(cr && x>=SCR_WD) {
+      x=0;
+      y+=cfont.ySize;
       if(y>SCR_HT) y = 0;
     }
   }
@@ -850,12 +836,19 @@ int ST7567_FB::printStr(int xpos, int ypos, char *str)
 // ----------------------------------------------------------------
 bool ST7567_FB::isNumber(uint8_t ch)
 {
-  return isdigit(ch) || ch==' ';
+  // '0' is 48 (0x30), '9' is 57 (0x39)
+  return (ch >= '0' && ch <= '9') || ch == ' ';
 }
+
 // ---------------------------------
+
 bool ST7567_FB::isNumberExt(uint8_t ch)
 {
-  return isdigit(ch) || ch=='-' || ch=='+' || ch=='.' || ch==' ';
+  return (ch >= '0' && ch <= '9') ||
+          ch == '-' ||
+          ch == '+' ||
+          ch == '.' ||
+          ch == ' ';
 }
 // ----------------------------------------------------------------
 unsigned char ST7567_FB::convertPolish(unsigned char _c)
@@ -867,47 +860,47 @@ unsigned char ST7567_FB::convertPolish(unsigned char _c)
   }
   if(dualChar) { // UTF8 coding
     switch(_c) {
-      case 133: pl = 1+9; break; // '¹'
-      case 135: pl = 2+9; break; // 'æ'
-      case 153: pl = 3+9; break; // 'ê'
-      case 130: pl = 4+9; break; // '³'
-      case 132: pl = dualChar==197 ? 5+9 : 1; break; // 'ñ' and '¥'
-      case 179: pl = 6+9; break; // 'ó'
-      case 155: pl = 7+9; break; // 'œ'
-      case 186: pl = 8+9; break; // 'Ÿ'
-      case 188: pl = 9+9; break; // '¿'
-      //case 132: pl = 1; break; // '¥'
-      case 134: pl = 2; break; // 'Æ'
-      case 152: pl = 3; break; // 'Ê'
-      case 129: pl = 4; break; // '£'
-      case 131: pl = 5; break; // 'Ñ'
-      case 147: pl = 6; break; // 'Ó'
-      case 154: pl = 7; break; // 'Œ'
-      case 185: pl = 8; break; // ''
-      case 187: pl = 9; break; // '¯'
+      case 133: pl = 1+9; break; // 'ï¿½'
+      case 135: pl = 2+9; break; // 'ï¿½'
+      case 153: pl = 3+9; break; // 'ï¿½'
+      case 130: pl = 4+9; break; // 'ï¿½'
+      case 132: pl = dualChar==197 ? 5+9 : 1; break; // 'ï¿½' and 'ï¿½'
+      case 179: pl = 6+9; break; // 'ï¿½'
+      case 155: pl = 7+9; break; // 'ï¿½'
+      case 186: pl = 8+9; break; // 'ï¿½'
+      case 188: pl = 9+9; break; // 'ï¿½'
+      //case 132: pl = 1; break; // 'ï¿½'
+      case 134: pl = 2; break; // 'ï¿½'
+      case 152: pl = 3; break; // 'ï¿½'
+      case 129: pl = 4; break; // 'ï¿½'
+      case 131: pl = 5; break; // 'ï¿½'
+      case 147: pl = 6; break; // 'ï¿½'
+      case 154: pl = 7; break; // 'ï¿½'
+      case 185: pl = 8; break; // 'ï¿½'
+      case 187: pl = 9; break; // 'ï¿½'
       default:  return c; break;
     }
     dualChar = 0;
-  } else   
+  } else
   switch(_c) {  // Windows coding
-    case 165: pl = 1; break; // ¥
-    case 198: pl = 2; break; // Æ
-    case 202: pl = 3; break; // Ê
-    case 163: pl = 4; break; // £
-    case 209: pl = 5; break; // Ñ
-    case 211: pl = 6; break; // Ó
-    case 140: pl = 7; break; // Œ
-    case 143: pl = 8; break; // 
-    case 175: pl = 9; break; // ¯
-    case 185: pl = 10; break; // ¹
-    case 230: pl = 11; break; // æ
-    case 234: pl = 12; break; // ê
-    case 179: pl = 13; break; // ³
-    case 241: pl = 14; break; // ñ
-    case 243: pl = 15; break; // ó
-    case 156: pl = 16; break; // œ
-    case 159: pl = 17; break; // Ÿ
-    case 191: pl = 18; break; // ¿
+    case 165: pl = 1; break; // ï¿½
+    case 198: pl = 2; break; // ï¿½
+    case 202: pl = 3; break; // ï¿½
+    case 163: pl = 4; break; // ï¿½
+    case 209: pl = 5; break; // ï¿½
+    case 211: pl = 6; break; // ï¿½
+    case 140: pl = 7; break; // ï¿½
+    case 143: pl = 8; break; // ï¿½
+    case 175: pl = 9; break; // ï¿½
+    case 185: pl = 10; break; // ï¿½
+    case 230: pl = 11; break; // ï¿½
+    case 234: pl = 12; break; // ï¿½
+    case 179: pl = 13; break; // ï¿½
+    case 241: pl = 14; break; // ï¿½
+    case 243: pl = 15; break; // ï¿½
+    case 156: pl = 16; break; // ï¿½
+    case 159: pl = 17; break; // ï¿½
+    case 191: pl = 18; break; // ï¿½
     default:  return c; break;
   }
   return pl+'~'+1;
