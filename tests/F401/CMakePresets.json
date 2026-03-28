@@ -1,6 +1,7 @@
 {
     "version": 3,
     "configurePresets": [
+
         {
             "name": "default",
             "hidden": true,
@@ -8,6 +9,20 @@
             "binaryDir": "${sourceDir}/build/${presetName}",
 		    "toolchainFile": "${sourceDir}/cmake/gcc-arm-none-eabi.cmake",
             "cacheVariables": {
+            }
+        },
+        {
+            "name": "Debug",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "Release",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
             }
         },
         {
@@ -99,8 +114,16 @@
                 "ACTIVE_DEMO": "ST7567_libfb_AnalogClock",
                 "CMAKE_BUILD_TYPE": "Debug"
             }
+        },
+        {
+            "name": "Demo-SerialWrapper",
+            "inherits": "default",
+            "displayName": "Example: Serial Wrapper",
+            "cacheVariables": {
+                "ACTIVE_DEMO": "ST7567_libfb_SerialWrapper",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
         }
-
     ],
     "buildPresets": [
         {
