@@ -689,7 +689,7 @@ void ST7567_FB::setDither(int8_t s)
   if(y+h>SCR_HT) h = SCR_HT-y
 // ----------------------------------------------------------------
 
-int16_t ST7567_FB::drawBitmap(const uint8_t *bmp, uint8_t x, uint8_t y, uint8_t w, uint8_t h)
+int16_t ST7567_FB::drawBitmap(const uint8_t *bmp, int16_t x, int16_t y, uint8_t w, uint8_t h)
 {
   uint8_t wdb = w;
   ALIGNMENT;
@@ -708,7 +708,7 @@ int16_t ST7567_FB::drawBitmap(const uint8_t *bmp, uint8_t x, uint8_t y, uint8_t 
   return x+w;
 }
 // ----------------------------------------------------------------
-int16_t ST7567_FB::drawBitmap(const uint8_t *bmp, uint8_t x, uint8_t y)
+int16_t ST7567_FB::drawBitmap(const uint8_t *bmp, int16_t x, int16_t y)
 {
   uint8_t w = bmp[0];
   uint8_t h = bmp[1];

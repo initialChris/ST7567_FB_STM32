@@ -1,0 +1,115 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "default",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+		    "toolchainFile": "${sourceDir}/cmake/gcc-arm-none-eabi.cmake",
+            "cacheVariables": {
+            }
+        },
+        {
+            "name": "Demo-HelloWorld",
+            "inherits": "default",
+            "displayName": "Example: Hello World",
+            "cacheVariables": {
+                "ACTIVE_DEMO": "ST7567_libfb_HelloWorld",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "Demo-HariChord",
+            "inherits": "default",
+            "displayName": "Example: HariChord",
+            "cacheVariables": {
+                "ACTIVE_DEMO": "ST7567_libfb_HariChord",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "Demo-Graphics",
+            "inherits": "default",
+            "displayName": "Example: Graphics",
+            "cacheVariables": {
+                "ACTIVE_DEMO": "ST7567_libfb_Graphics",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "Demo-Modes",
+            "inherits": "default",
+            "displayName": "Example: Modes",
+            "cacheVariables": {
+                "ACTIVE_DEMO": "ST7567_libfb_modes",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "Demo-Dithering",
+            "inherits": "default",
+            "displayName": "Example: Dithering",
+            "cacheVariables": {
+                "ACTIVE_DEMO": "ST7567_libfb_Dithering",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "Demo-Demo",
+            "inherits": "default",
+            "displayName": "Example: Demo",
+            "cacheVariables": {
+                "ACTIVE_DEMO": "ST7567_libfb_Demo",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "Demo-ClockTemp",
+            "inherits": "default",
+            "displayName": "Example: Clock temp",
+            "cacheVariables": {
+                "ACTIVE_DEMO": "ST7567_libfb_ClockTemp",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "Demo-Bitmap",
+            "inherits": "default",
+            "displayName": "Example: Bitmap",
+            "cacheVariables": {
+                "ACTIVE_DEMO": "ST7567_libfb_Bitmap",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "Demo-Bitmap2",
+            "inherits": "default",
+            "displayName": "Example: Bitmap 2",
+            "cacheVariables": {
+                "ACTIVE_DEMO": "ST7567_libfb_Bitmap2",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "Demo-AnalogClock",
+            "inherits": "default",
+            "displayName": "Example: Analog Clock",
+            "cacheVariables": {
+                "ACTIVE_DEMO": "ST7567_libfb_AnalogClock",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        }
+
+    ],
+    "buildPresets": [
+        {
+            "name": "Debug",
+            "configurePreset": "Debug"
+        },
+        {
+            "name": "Release",
+            "configurePreset": "Release"
+        }
+    ]
+}

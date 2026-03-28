@@ -51,7 +51,7 @@ public:
   inline void sendSPI(uint8_t v) __attribute__((always_inline)); // costs about 350B of flash
   inline void sendCmd(uint8_t cmd);
   inline void sendData(uint8_t data);
-  void init(uint8_t contrast=7);
+  void init(uint8_t contrast=4);
   void begin() { init(); }
   void initCmds();
   void display();
@@ -86,8 +86,8 @@ public:
   void fillTriangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t color);
   void fillTriangleD(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t color);
   void setDither(int8_t s);
-  int16_t drawBitmap(const uint8_t *bmp, uint8_t x, uint8_t y, uint8_t w, uint8_t h);
-  int16_t drawBitmap(const uint8_t *bmp, uint8_t x, uint8_t y);
+  int16_t drawBitmap(const uint8_t *bmp, int16_t x, int16_t y, uint8_t w, uint8_t h);
+  int16_t drawBitmap(const uint8_t *bmp, int16_t x, int16_t y);
 
   void setFont(const uint8_t* f);
   void setCR(uint8_t _cr) { cr = _cr; }
@@ -95,8 +95,8 @@ public:
   void setFontMinWd(uint8_t wd) { cfont.minCharWd = wd; }
   void setCharMinWd(uint8_t wd) { cfont.minCharWd = wd; }
   void setDigitMinWd(uint8_t wd) { cfont.minDigitWd = wd; }
-  int16_t printChar(int16_t xpos, int16_t ypos, unsigned char c, uint8_t col);
-  int16_t printStr(int16_t xpos, int16_t ypos, const char *str, uint8_t col);
+  int16_t printChar(int16_t xpos, int16_t ypos, unsigned char c, uint8_t col = SET);
+  int16_t printStr(int16_t xpos, int16_t ypos, const char *str, uint8_t col = SET);
   int16_t charWidth(uint8_t _ch, bool last=true);
   int16_t fontHeight();
   int16_t strWidth(const char *txt);
