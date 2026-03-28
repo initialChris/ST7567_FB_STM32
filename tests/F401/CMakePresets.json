@@ -120,7 +120,7 @@
             "inherits": "default",
             "displayName": "Example: Serial Wrapper",
             "cacheVariables": {
-                "ACTIVE_DEMO": "ST7567_libfb_SerialWrapper",
+                "ACTIVE_DEMO": "ST7567_SerialWrapper",
                 "CMAKE_BUILD_TYPE": "Debug"
             }
         }

@@ -80,9 +80,27 @@ add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../" "${CMAKE_CURRENT_BINARY_DI
 
 if(NOT ACTIVE_DEMO STREQUAL "NONE")
     set(DEMO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../examples/${ACTIVE_DEMO}")
-    file(GLOB DEMO_SOURCES "${DEMO_DIR}/*.cpp")
+    
+    # 1. Cerca ricorsivamente tutti i file .cpp e .c (importante se hai file C)
+    file(GLOB_RECURSE DEMO_SOURCES 
+        "${DEMO_DIR}/*.cpp"
+        "${DEMO_DIR}/*.c"
+    )
+    
+    # 2. Aggiungi i sorgenti al progetto
     target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${DEMO_SOURCES})
+    
+    # 3. Includi la cartella principale della demo
     target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${DEMO_DIR})
+    
+    # 4. (Opzionale ma consigliato) Includi automaticamente tutte le sottocartelle per gli header
+    # Questo serve se serial.h è dentro una sottocartella di ST7567_SerialWrapper
+    file(GLOB_RECURSE DEMO_INC_DIRS LIST_DIRECTORIES true "${DEMO_DIR}/*")
+    foreach(dir ${DEMO_INC_DIRS})
+        if(IS_DIRECTORY ${dir})
+            target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${dir})
+        endif()
+    endforeach()
 endif()
 
 # Add linked libraries
