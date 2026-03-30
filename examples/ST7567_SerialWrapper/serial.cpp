@@ -1,15 +1,20 @@
 #include "serial.h"
+#include "cmsis_gcc.h"
+#include <stdint.h>
 
 uint8_t rx_data;
 volatile uint8_t rx_fifo[SERIAL_BUF_SIZE];
 volatile uint16_t head, tail;
+volatile uint16_t rx_count;
 
 void serialBegin(UART_HandleTypeDef *huart) {
+    head = 0;
+    tail = 0;
     HAL_UART_Receive_IT(huart, &rx_data, 1);
 }
 
-bool serialAvailable(void) {
-    return head != tail;
+uint16_t serialAvailable(void) {
+    return (head + SERIAL_BUF_SIZE - tail) % SERIAL_BUF_SIZE;
 }
 
 uint8_t serialRead(void) {
@@ -19,12 +24,14 @@ uint8_t serialRead(void) {
     return data;
 }
 
-bool serialReadArgs(uint8_t* buf, uint8_t count, uint32_t timeout) {
+bool serialReadArgs(uint8_t* buf, uint16_t count, uint32_t timeout) {
     uint32_t start_time = HAL_GetTick();
 
-    for (uint8_t i = 0; i < count; i++) {
+    for (uint16_t i = 0; i < count; i++) {
         // Wait until a byte arrives or 100ms pass
-        while (!serialAvailable()) {
+        uint16_t available = serialAvailable();
+        while (available == 0) {
+            available = serialAvailable();
             if (HAL_GetTick() - start_time > timeout) {
                 return false; // Timeout: data lost or incomplete
             }
@@ -36,16 +43,18 @@ bool serialReadArgs(uint8_t* buf, uint8_t count, uint32_t timeout) {
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
     if (huart->Instance == USART2) {
-        // Calcola la prossima posizione della testa
+        // Calculate the next head index
         uint16_t next_head = (head + 1) % SERIAL_BUF_SIZE;
 
-        // Se non abbiamo superato la coda (buffer pieno), salviamo il dato
+        // If the buffer is not full, add the new byte to the buffer
         if (next_head != tail) {
             rx_fifo[head] = rx_data;
             head = next_head;
+            rx_count++;
         }
 
-        // Riattiva l'interrupt per il prossimo byte
+
+        // Re enable the UART interrupt
         HAL_UART_Receive_IT(huart, &rx_data, 1);
     }
 }

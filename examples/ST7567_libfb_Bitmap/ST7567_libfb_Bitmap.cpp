@@ -1,6 +1,5 @@
 #include "ST7567_FB.h"
 #include "main.h"
-
 extern ST7567_FB lcd;
 
 const uint8_t icon1 [] = { 16,16,
@@ -30,7 +29,6 @@ void demo_setup()
   lcd.drawBitmap(icon3,-2,16);
   lcd.drawBitmap(icon3,116,54);
   lcd.display();
-  //lcd.copy(0,10,8,32,0);
 }
 
 void demo_loop() 
