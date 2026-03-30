@@ -2,31 +2,13 @@
 
 **Fast SPI graphics library for ST7567 128x64 LCD with frame buffer.**
 
-This is a port for **STM32 (HAL)** of the original library created by [cbm80amiga](https://github.com/cbm80amiga/ST7567_FB). It is designed for high-performance graphics on small monochrome displays using the STM32 ecosystem and C++.
+This is a fork of the original library created by [cbm80amiga](https://github.com/cbm80amiga/ST7567_FB).
 
-## 📜 Original Credits
-This library is a fork and port of the work by **cbm80amiga**. 
+If you want to support the original author: [https://www.paypal.me/cbm80amiga](https://www.paypal.me/cbm80amiga)
 
-- **Original Repository:** [cbm80amiga/ST7567_FB](https://github.com/cbm80amiga/ST7567_FB)
-- **Original YouTube Video:** [Watch here](https://youtu.be/YC-wqZnCGQ4)
+The included fonts are adapted from [PropFonts](https://github.com/cbm80amiga/PropFonts).
 
-If you find the original logic of this library useful and want to support the original author:
-- **PayPal:** [https://www.paypal.me/cbm80amiga](https://www.paypal.me/cbm80amiga)
-
-
-## 🚀 Features
-- **Frame Buffer:** All drawing operations are performed in RAM for maximum speed.
-- **Proportional Fonts:** Built-in support (compatible with [PropFonts](https://github.com/cbm80amiga/PropFonts)).
-- **Primitives:** - Pixels, lines, rectangles, circles, triangles (both outline and filled).
-- **Optimized Drawing:** - Ultra-fast horizontal/vertical line drawing.
-  - 17 ordered dithering patterns.
-  - Bitmap drawing support.
-
-## 🛠 Tested Hardware
-- **MCU:** STM32F401RET6.
-- **Display:** ST7567 128x64 LCD (e.g., OPEN-SMART 2.6" display module).
-
-## 🔧 Implementation Details (STM32)
+The library has been tested with the STM32F401RET and an ST7567 128x64 LCD (e.g., OPEN-SMART 2.6" display module).
 
 ### Hardware Configuration
 The library utilizes the **STM32 HAL** and requires the SPI peripheral to be configured as follows:
@@ -44,15 +26,13 @@ ST7567_FB lcd(&hspi1,
               LCD_CS_GPIO_Port, LCD_CS_Pin, 
               LCD_RST_GPIO_Port, LCD_RST_Pin);
 ```
-## 📚 Examples
 
-The `tests` folder contains a CMake project designed to test the various examples located in the `examples` directory. 
+### Examples
 
-By using the `CMakePresets.json` file, you can switch between different presets to compile each example individually. This approach eliminates the need to create separate projects for every single demo.
+Some of the original examples have been rewritten to work on the STM32 and are available in the `examples` directory.
 
-The recommended environment is **Visual Studio Code** (using the CMake Tools extension and STM32 extension pack), but you can also use **STM32CubeIDE** by importing the project as a CMake project.
+The `tests/F401` folder contains a sandbox to test the examples on the **Nucleo F401RE** using the following pin mapping. You can use the presets contained in the `CMakePresets.json` file to build each individual example.
 
-The examples are configured for the **Nucleo F401RE** board with the following pin mapping:
 
 | Signal    | STM32 Pin | Arduino Header |
 |:----------|:---------:|:--------------:|
@@ -63,11 +43,37 @@ The examples are configured for the **Nucleo F401RE** board with the following p
 | LCD_BCKL  | **PC7** | D9             |
 | LCD_RST   | **PA9** | D8             |
 
+The `examples/ST7567_SerialWrapper` is particularly useful for sending commands to the display via UART. This allows testing commands and drawing custom UIs in real-time with Python, avoiding the need to flash the firmware every time. It supports all commands described in the header using the same format, except for the `setFont` command which accepts the index of the font to use. The font list must be configured in `examples/ST7567_SerialWrapper/parser.cpp` within the following section:
+
+```cpp
+case CMD_SET_FONT:     
+    // Fonts are selected by index  
+    switch (buffer[0]) {
+        case 0: lcd.setFont(c64enh); break;
+        case 1: lcd.setFont(amstrad); break;
+        case 2: lcd.setFont(term11x16); break;
+        // Insert here case for other fonts
+        default: lcd.setFont(c64enh); break;
+    }
+    break;
+```
+
+## Tools:
+### Image converter
+The `tools/image_converter/image_converter.py` helps to convert images into a format compatible with the ST7567 display. It requires the Pillow library to be installed.
+
+### Font formatter
+The `tools/font_formatter/formatter.py` script can be used to format the header files of the included fonts. It removes the `PROGMEM` keyword and casts the first negative number to `(uint8_t)` from the fonts contained in [PropFonts](https://github.com/cbm80amiga/PropFonts) repository.
+
+### Font converter
+TODO
 
 
-## 📋 TODO
+## TODO
 - [ ] Clean up the code (there is some inconsistency in the code style. Some sections should be declared private).
-- [ ] Implement **DMA** support for non-blocking `display()` updates.
+- [ ] Implement DMA support for non-blocking `display()` updates.
+- [ ] Add the ability to send fonts via UART.
+- [ ] Create the font generator tool.
 
 ## License
 Refer to the original repository for licensing information.
